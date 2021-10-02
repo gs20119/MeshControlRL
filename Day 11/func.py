@@ -17,6 +17,9 @@ def dotProduct(v1, v2):
 def length(v):
   return math.sqrt(dotProduct(v, v))
 
+def normal(v):
+    return mul(1/length(v),v)
+
 def angleOfVector(v1, v2):
     temp = dotProduct(v1, v2) / (length(v1) * length(v2))
     if temp >1 :

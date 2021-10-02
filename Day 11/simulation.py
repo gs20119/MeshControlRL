@@ -3,6 +3,7 @@ import pygame
 import func as f
 import torch
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 WIDTH, HEIGHT = 800, 600
 FPS = 120
 ALPHA = 1 / FPS
@@ -10,6 +11,8 @@ r = 5
 LineWidth = 5
 INTERVAL = 25
 Size = [WIDTH, HEIGHT]
+stretchRange = 150
+rotateRange = 20
 
 # 이용할 색깔
 BLACK = 0, 0, 0
@@ -46,7 +49,7 @@ class MVCCurve:  # Mean Value Coordinate 곡선을 처리
         self.R0, self.N = Radius, N
         self.Weight = [[self.setWeight(Obj, i, j) for j in range(Obj.N)] for i in range(self.N)]
         self.Curve = [(0, 0) for i in range(self.N)]
-        self.update(Obj);
+        self.update(Obj)
 
     def setWeight(self, Obj, i, j):  # 초기 가중치 설정
         point = f.add(Obj.getCenter(), f.mul(self.R0, f.unitCircle(2 * math.pi * i / self.N)))
@@ -132,10 +135,14 @@ class Object:
         return 4 * self.N + 6
 
     def force(self, action):
-        action = torch.squeeze(torch.FloatTensor(action))
-
-        return [list([action[2*i].item()*math.cos(action[2*i+1].item()) ,
-                      action[2*i].item()*math.sin(action[2*i+1].item())]) for i in range(self.N)]
+        action = torch.squeeze(torch.FloatTensor(action).to(device))
+        ret = [[0,0] for i in range(self.N)]
+        for i in range(self.N):
+            vec = f.dif(self.getControl(i), self.getCenter())
+            theta = f.normal(vec) # action에서 stretch = 중심방향 힘, rotate = 접선방향 힘
+            ret[i][0] = action[2*i].item()*theta[0]*stretchRange - action[2*i+1].item()*theta[1]*rotateRange
+            ret[i][1] = action[2*i].item()*theta[1]*stretchRange + action[2*i+1].item()*theta[0]*rotateRange
+        return ret
 
     def extForce(self, action):  # 외력 추가하기 (1)
         F = self.force(action)
@@ -250,7 +257,7 @@ class Simulation:  # 오브젝트가 최종적으로 구현되는 Playground
         done = self.object.Curve.outSide()
         if not done:
             return self.getState(), ret, False
-        return self.getState(), -3, True
+        return self.getState(), -10, True
 
     def action_size(self):
         return self.object.action_size()

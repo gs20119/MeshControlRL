@@ -13,7 +13,6 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 batch_size = 128
 mem_maxlen = 50000
 discount_factor = 0.99
-actionRange = 400
 actor_lr = 1e-4
 critic_lr = 5e-4
 
@@ -59,8 +58,8 @@ class Agent:
         self.state_size = state_size
         self.action_size = action_size
 
-        self.actor = Actor(self.state_size, self.action_size)
-        self.critic = Critic(self.state_size, self.action_size)
+        self.actor = Actor(self.state_size, self.action_size).to(device)
+        self.critic = Critic(self.state_size, self.action_size).to(device)
 
         self.target_actor = copy.deepcopy(self.actor)
         self.target_critic = copy.deepcopy(self.critic)
@@ -72,26 +71,24 @@ class Agent:
         self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=actor_lr)
 
     def get_action(self, state):
-        action = self.actor(convertToTensorInput(state, self.state_size)).detach().numpy()
+        action = self.actor(convertToTensorInput(state, self.state_size)).cpu().detach().numpy()
         noise = self.OU.sample()
 
-        if self.train_mode:
-            return (action + noise) * actionRange
-        else:
-            return (action) * actionRange
+        if self.train_mode: return action + noise
+        else: return action
 
     def append_sample(self, state, action, rewards, next_state, done):
         self.memory.append((state, action, rewards, next_state, done))
 
     def train_model(self):
-        if batch_size> len(self.memory) : return null
+        if batch_size> len(self.memory) : return None
         mini_batch = random.sample(self.memory, batch_size)
 
-        states = torch.FloatTensor([sample[0] for sample in mini_batch])
-        actions = torch.FloatTensor([sample[1] for sample in mini_batch])
-        rewards = torch.FloatTensor([sample[2] for sample in mini_batch])
-        next_states = torch.FloatTensor([sample[3] for sample in mini_batch])
-        dones = torch.FloatTensor([sample[4] for sample in mini_batch])
+        states = torch.FloatTensor([sample[0] for sample in mini_batch]).to(device)
+        actions = torch.FloatTensor([sample[1] for sample in mini_batch]).to(device)
+        rewards = torch.FloatTensor([sample[2] for sample in mini_batch]).to(device)
+        next_states = torch.FloatTensor([sample[3] for sample in mini_batch]).to(device)
+        dones = torch.FloatTensor([sample[4] for sample in mini_batch]).to(device)
 
         target_actor_actions = self.target_actor(next_states)
         target_critic_predict_qs = self.target_critic(next_states, target_actor_actions)
@@ -99,7 +96,7 @@ class Agent:
         target_qs = [reward + discount_factor * (1 - done) *
                                 target_critic_predict_q for reward, target_critic_predict_q, done in
                                 zip(rewards, target_critic_predict_qs, dones)]
-        target_qs = torch.FloatTensor([target_qs])
+        target_qs = torch.FloatTensor([target_qs]).to(device)
 
         q_val = self.critic(states, actions)
 
