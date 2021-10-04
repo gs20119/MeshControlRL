@@ -59,8 +59,8 @@ class Critic(nn.Module):
 
 class TD3(object):
     def __init__(
-        self, state_dim, action_dim, discount=0.99, 
-        tau=0.005, noise=0.05, noise_clip=0.5, delay=2, bufferSize=50000
+        self, state_dim, action_dim, discount=0.99, explore = 0.0,
+        tau=0.005, actor_noise=0.2, noise_clip=0.5, delay=2, bufferSize=50000
     ):
         self.actor = Actor(state_dim, action_dim).to(device)
         self.actor_target = copy.deepcopy(self.actor)
@@ -72,7 +72,8 @@ class TD3(object):
         
         self.discount = discount
         self.tau = tau
-        self.noise = noise
+        self.noise = actor_noise
+        self.explore = explore
         self.noise_clip = noise_clip
         self.delay = delay
 
@@ -83,7 +84,7 @@ class TD3(object):
     def get_action(self, state):
         state = torch.FloatTensor(np.reshape(state,(1,-1))).to(device) 
         action = self.actor(state).cpu().data.numpy().flatten()
-        action += np.random.randn(len(action)) * self.noise
+        action += np.random.randn(len(action)) * self.explore
         return action
 
 

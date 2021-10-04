@@ -16,6 +16,7 @@ rotateRange = 20
 mainRange = 100
 posScale = 150.0
 velScale = 20.0
+RewardScale = 20.0
 
 # 이용할 색깔
 BLACK = 0, 0, 0
@@ -239,7 +240,7 @@ class Simulation:  # 오브젝트가 최종적으로 구현되는 Playground
                 y, x = i * INTERVAL, j * INTERVAL
                 if self.object.Curve.isInside(x, y):
                     Reward += self.bonus[i][j]
-        return Reward/10
+        return Reward/RewardScale
 
     def render(self,  hide):  # 화면에 표시
         self.screen.fill(WHITE)

@@ -64,8 +64,6 @@ state_size = simulation.state_size()
 action_size = simulation.action_size()
 
 agent = TD3(state_size, action_size)
-rewards = deque(maxlen=print_interval)
-
 
 state = simulation.reset()
 done = False
