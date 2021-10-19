@@ -140,7 +140,7 @@ class TD3(object):
             self.soft_update_target(self.critic_target, self.critic)
             self.soft_update_target(self.actor_target, self.actor)
 
-        return actor_loss, critic_loss
+        return actor_loss.detach().cpu().numpy(), critic_loss.detach().cpu().numpy()
 
 
     def soft_update_target(self, target, origin):

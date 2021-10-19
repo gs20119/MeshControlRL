@@ -242,17 +242,19 @@ class Simulation:  # 오브젝트가 최종적으로 구현되는 Playground
                     Reward += self.bonus[i][j]
         return Reward/RewardScale
 
-    def render(self,  hide):  # 화면에 표시
+    def render(self,  hidecontrol, hidegrid):  # 화면에 표시
         self.screen.fill(WHITE)
-        for i in range(int(HEIGHT / INTERVAL)):
-            for j in range(int(WIDTH / INTERVAL)):
-                x, y = j * INTERVAL, i * INTERVAL
-                if self.bonus[i][j] == 0:
-                    col = GREEN if self.object.Curve.isInside(x, y) else BLACK
-                else:
-                    col = BLUE if self.bonus[i][j] < 0 else RED
-                pygame.draw.circle(self.screen, col, (x, y), 3)
-        self.object.draw(self.screen, hide)
+        if hidegrid == False:
+            for i in range(int(HEIGHT / INTERVAL)):
+                for j in range(int(WIDTH / INTERVAL)):
+                    x, y = j * INTERVAL, i * INTERVAL
+                    if self.bonus[i][j] == 0:
+                        col = GREEN if self.object.Curve.isInside(x, y) else BLACK
+                    else:
+                        col = BLUE if self.bonus[i][j] < 0 else RED
+                    pygame.draw.circle(self.screen, col, (x, y), 3) # 격자 그리기
+        self.object.draw(self.screen, hidecontrol)
+        
 
     def step(self, action):  # 갱신
         self.object.extForce(action)
