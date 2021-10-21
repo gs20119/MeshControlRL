@@ -60,7 +60,7 @@ class Critic(nn.Module):
 class TD3(object):
     def __init__(
         self, state_dim, action_dim, discount=0.99, explore = 0.0,
-        tau=0.005, actor_noise=0.2, noise_clip=0.5, delay=2, bufferSize=50000
+        tau=0.005, actor_noise=0.2, noise_clip=0.5, delay=2, bufferSize=100000
     ):
         self.actor = Actor(state_dim, action_dim).to(device)
         self.actor_target = copy.deepcopy(self.actor)
@@ -103,7 +103,7 @@ class TD3(object):
         )
 
 
-    def train(self, batch_size=128):
+    def train(self, batch_size=256):
         self.iteration += 1
 
         # Sample Replay Buffer

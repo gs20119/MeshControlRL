@@ -154,8 +154,8 @@ class Object:
     def extForce(self, action):  # 외력 추가하기 (1)
         F = self.force(action)
         for i in range(self.N):
-            self.Fnet[i][0] += F[i][0]
-            self.Fnet[i][1] += F[i][1]
+            self.Fnet[i][0] += (F[i][0] + F[(i+self.N-1)%self.N][0] + F[(i+1)%self.N][0]) / 3.0
+            self.Fnet[i][1] += (F[i][1] + F[(i+self.N-1)%self.N][1] + F[(i+1)%self.N][1]) / 3.0
 
     def calculate(self):  # 탄성에 의한 힘과 토크 계산하기 (2)
         Center = self.getCenter()
