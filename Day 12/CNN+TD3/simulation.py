@@ -2,14 +2,16 @@ import math
 import pygame
 import func as f
 import torch
+from collections import deque
+import numpy as np
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-WIDTH, HEIGHT = 800, 600
+WIDTH, HEIGHT = 800, 800
 FPS = 120
 ALPHA = 1 / FPS
 r = 5
 LineWidth = 5
-INTERVAL = 25
+INTERVAL = 20
 Size = [WIDTH, HEIGHT]
 stretchRange = 150
 rotateRange = 20
@@ -93,10 +95,9 @@ class MVCCurve:  # Mean Value Coordinate 곡선을 처리
     def outSide(self):
         for i in range(self.N):
             pos = self.Curve[i]
-            if pos[0] < 0 or pos[0] > WIDTH or pos[1] < 0 or pos[1] > HEIGHT:
+            if pos[0]<0 or pos[0]>WIDTH or pos[1]<0 or pos[1]>HEIGHT:
                 return True
         return False
-
 
 
 class Object:
@@ -112,9 +113,9 @@ class Object:
         self.Fnet = list([(0, 0) for i in range(self.N + 1)])  # 알짜힘
         for i in range(self.N + 1): self.Fnet[i] = list(self.Fnet[i])
         self.Curve = MVCCurve(self, mvcN, mvcR)  # MVC 곡선 (관찰의 대상)
-        self.V0 = self.N * self.R0 * self.R0 * math.sin(2 * math.pi / self.N) / 2
+        self.V0 = self.N * self.R0 * self.R0 * math.sin(2*math.pi / self.N)/2
         self.Frame = 5
-        self.pointState = []
+        self.ImageDeque = deque(maxlen=self.Frame)
 
     def reset(self):  # 오브젝트 초기화
         self.Control = [(Physics(self.R0 * math.cos(2 * math.pi * i / self.N) + WIDTH / 2),
@@ -122,45 +123,49 @@ class Object:
                         range(self.N)]
         self.Center = [Physics(WIDTH / 2), Physics(HEIGHT / 2)]
         self.mainAxis = Physics(0)
-        self.V0 = self.N * self.R0 * self.R0 * math.sin(2 * math.pi / self.N) / 2
-        self.pointState = []
-        return self.getState()
+        self.V0 = self.N * self.R0 * self.R0 * math.sin(2 * math.pi / self.N)/2
+        self.ImageDeque.clear()
+        return self.getImageState()
 
     def getState(self):
-        """ret = list([0 for i in range(self.state_size())])
+        ret = list([0 for i in range(self.state_size())])
         for i in range(self.N):
-            ret[2 * i], ret[2 * i + 1] = f.mul(1/self.R0, f.dif(self.getControl(i), self.Center()))
-            ret[2 * (self.N + 1) + 2 * i], ret[2 * (self.N + 1) + 2 * i + 1] = self.getVelocity(i)
-        ret[2 * self.N], ret[2 * self.N + 1] = f.mul(1/posScale, self.getCenter())
-        ret[4 * self.N + 2], ret[4 * self.N + 3] = self.Center[0].getSpeed(), self.Center[1].getSpeed()
-        ret[4 * self.N + 4], ret[4 * self.N + 5] = self.mainAxis.getPos(), self.mainAxis.getSpeed()
-        for i in range(2 * (self.N + 1)):
-            ret[i + 2 * (self.N + 1)] /= velScale
-        return ret"""
+            ret[2*i], ret[2*i+1] = self.getControl(i)
+            ret[2*(self.N+1) + 2*i], ret[2*(self.N+1) + 2*i+1] = self.getVelocity(i)
+        ret[2*self.N], ret[2*self.N+1] = self.getCenter()
+        ret[4*self.N+2], ret[4*self.N+3] = self.Center[0].getSpeed(), self.Center[1].getSpeed()
+        ret[4*self.N+4], ret[4*self.N+5] = self.mainAxis.getPos(), self.mainAxis.getSpeed()
+        for i in range(2*(self.N+1)): 
+            ret[i] /= posScale
+            ret[i+2*(self.N+1)] /= velScale
+        return ret
 
+    def getImageState(self):
         ret = [[0 for j in range(int(WIDTH / INTERVAL))] for i in range(int(HEIGHT / INTERVAL))]
-        ret = list(ret)
+        ret = np.array(ret)
         for i in range(int(HEIGHT / INTERVAL)):
-            for j in range(int(WIDTH / INTERVAL)):
-                x, y = j * INTERVAL, i * INTERVAL
-                ret[i][j] = 1 if self.Curve.isInside(x, y) else 0
-        self.pointState.append(ret)
-        if len(self.pointState)>self.Frame :
-            self.pointState.pop(0)
-        return self.pointState
+           for j in range(int(WIDTH / INTERVAL)):
+               x, y = j * INTERVAL, i * INTERVAL
+               ret[i][j] = 1 if self.Curve.isInside(x, y) else 0
+        self.ImageDeque.append(ret)
+
+        ret = np.zeros_like(ret)
+        for i in range(len(self.ImageDeque)) :
+            ret += (i+1)* self.ImageDeque[i]
+        return ret * 0.05
 
     def action_size(self):
-        return 2 * self.N + 2
+        return 2*self.N+2
 
     def state_size(self):
         return 4 * self.N + 6
 
     def force(self, action):
         action = torch.squeeze(torch.FloatTensor(action).to(device))
-        ret = [mainRange * [action[2 * self.N], action[2 * self.N + 1]] for i in range(self.N + 1)]
+        ret = [mainRange*[action[2*self.N],action[2*self.N+1]] for i in range(self.N+1)]
         for i in range(self.N):
             vec = f.dif(self.getControl(i), self.getCenter())
-            theta = f.normal(vec)  # action에서 stretch = 중심방향 힘, rotate = 접선방향 힘
+            theta = f.normal(vec) # action에서 stretch = 중심방향 힘, rotate = 접선방향 힘
             ret[i][0] = action[2*i].item()*theta[0]*stretchRange - action[2*i+1].item()*theta[1]*rotateRange
             ret[i][1] = action[2*i].item()*theta[1]*stretchRange + action[2*i+1].item()*theta[0]*rotateRange
         return ret
@@ -168,8 +173,8 @@ class Object:
     def extForce(self, action):  # 외력 추가하기 (1)
         F = self.force(action)
         for i in range(self.N):
-            self.Fnet[i][0] += F[i][0]
-            self.Fnet[i][1] += F[i][1]
+            self.Fnet[i][0] += (F[i][0] + F[(i+self.N-1)%self.N][0] + F[(i+1)%self.N][0]) / 3.0
+            self.Fnet[i][1] += (F[i][1] + F[(i+self.N-1)%self.N][1] + F[(i+1)%self.N][1]) / 3.0
 
     def calculate(self):  # 탄성에 의한 힘과 토크 계산하기 (2)
         Center = self.getCenter()
@@ -183,20 +188,17 @@ class Object:
             self.Fnet[self.N] = f.add(self.Fnet[self.N],
                                       f.mul(-self.k * (self.R0 - f.dist(pos, Center)), f.dir(Center, pos)))
             theta = math.atan2(pos[1] - self.getCenter()[1], pos[0] - self.getCenter()[0])
-            Tq = self.aK * f.setArrange(theta - (2 * math.pi * i / self.N) - self.mainAxis.getPos(), -math.pi, math.pi, 2*math.pi)
+            Tq = self.aK * f.setArrange(theta - (2 * math.pi * i / self.N) - self.mainAxis.getPos(), -math.pi, math.pi,
+                                        2 * math.pi)
             self.Fnet[i] = f.add(self.Fnet[i], f.mul(Tq / (f.dist(pos, Center)),
-                f.unitCircle(theta - 1 * math.pi / 2)))  # F=ma=m * alpha * r= m * T / (m*r^2) *r = T/r
+                                                     f.unitCircle(theta - 1 * math.pi / 2)))#F=ma=m * alpha * r= m * T / (m*r^2) *r = T/r
             self.totalI += self.mass * (f.dist(pos, Center) ** 2)
             self.Tqnet += Tq
-            Area[i] = 0.5 * f.dist(Center, self.getControl(i)) * f.dist(Center,
-                                                                        self.getControl((i + 1) % self.N)) * math.sin(
-                f.angle(self.getControl(i), self.getControl((i + 1) % self.N), Center))
+            Area[i] = 0.5 * f.dist(Center, self.getControl(i)) * f.dist(Center, self.getControl((i+1)%self.N)) * math.sin(f.angle(self.getControl(i), self.getControl((i+1)%self.N), Center))
             sumArea += Area[i]
 
         for i in range(self.N):
-            self.Fnet[i] = f.add(self.Fnet[i], f.mul(
-                self.sK * (self.V0 - sumArea) * (Area[i] + Area[i - 1]) / f.dist(Center, self.getControl(i)),
-                f.dir(Center, self.getControl(i))))
+            self.Fnet[i] = f.add(self.Fnet[i], f.mul(self.sK*(self.V0-sumArea)*(Area[i]+Area[i-1]) /f.dist(Center, self.getControl(i)) , f.dir(Center, self.getControl(i))))
 
     def update(self):  # 상태 및 결과 업데이트하기 (3)
         for i in range(self.N):
@@ -225,9 +227,9 @@ class Object:
         self.Curve.draw(screen)
 
     def getControl(self, i):  # 제어점 위치 받기
-        if i < 0:
+        if i<0 :
             i += self.N
-        elif i >= self.N:
+        elif i>=self.N :
             i -= self.N
         return self.Control[i][0].getPos(), self.Control[i][1].getPos()
 
@@ -236,7 +238,6 @@ class Object:
 
     def getCenter(self):  # 중심점 받기
         return self.Center[0].getPos(), self.Center[1].getPos()
-
 
 class Simulation:  # 오브젝트가 최종적으로 구현되는 Playground
     def __init__(self, N, Mass, Length, k, aK, sK, Damp, aDamp, bonus, mvcN, mvcR, screen):
@@ -254,13 +255,13 @@ class Simulation:  # 오브젝트가 최종적으로 구현되는 Playground
     def reward(self):  # 강화학습을 위한 reward 계산
         Reward = 0
         for i in range(int(HEIGHT / INTERVAL)):
-            for j in range(int(WIDTH / INTERVAL)):
+            for j in range(int( WIDTH/ INTERVAL)):
                 y, x = i * INTERVAL, j * INTERVAL
                 if self.object.Curve.isInside(x, y):
                     Reward += self.bonus[i][j]
-        return Reward
+        return Reward/RewardScale
 
-    def render(self, hidecontrol, hidegrid):  # 화면에 표시
+    def render(self,  hidecontrol, hidegrid):  # 화면에 표시
         self.screen.fill(WHITE)
         if hidegrid == False:
             for i in range(int(HEIGHT / INTERVAL)):
@@ -270,8 +271,9 @@ class Simulation:  # 오브젝트가 최종적으로 구현되는 Playground
                         col = GREEN if self.object.Curve.isInside(x, y) else BLACK
                     else:
                         col = BLUE if self.bonus[i][j] < 0 else RED
-                    pygame.draw.circle(self.screen, col, (x, y), 3)  # 격자 그리기
+                    pygame.draw.circle(self.screen, col, (x, y), 3) # 격자 그리기
         self.object.draw(self.screen, hidecontrol)
+        
 
     def step(self, action):  # 갱신
         self.object.extForce(action)
@@ -279,12 +281,12 @@ class Simulation:  # 오브젝트가 최종적으로 구현되는 Playground
         self.object.update()
         reward = self.reward()
         #ret = reward - self.pre
-        # print("{}, {}".format(reward, ret))
+        #print("{}, {}".format(reward, ret))
         #self.pre = reward
         done = self.object.Curve.outSide()
         if not done:
-            return self.getState(),reward/RewardScale, False
-        return self.getState(), -10, True
+            return self.getImageState(), reward, False
+        return self.getImageState(), -10, True
 
     def action_size(self):
         return self.object.action_size()
@@ -293,4 +295,4 @@ class Simulation:  # 오브젝트가 최종적으로 구현되는 Playground
         return self.object.state_size()
 
     def getState(self):
-        return self.object.getState()
+        return self.object.getImageState()

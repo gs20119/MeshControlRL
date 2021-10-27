@@ -15,12 +15,17 @@ class Actor(nn.Module):
     def __init__(self, state_dim, action_dim):
         super(Actor, self).__init__()
 
-        self.layer1 = nn.Linear(state_dim, 256)
+        self.conv1 = nn.Conv2d(1, 4, 4, 2) # 4@19*19 
+        self.conv2 = nn.Conv2d(4, 8, 3, 2) # 8@9*9
+        self.layer1 = nn.Linear(8*9*9, 256)
         self.layer2 = nn.Linear(256, 256)
         self.layer3 = nn.Linear(256, action_dim)
 
     def forward(self, state):
-        a = F.relu(self.layer1(state))
+        print(np.size(state))
+        a = F.relu(self.conv1(state))
+        a = F.relu(self.conv2(a))
+        a = F.relu(self.layer1(a))
         a = F.relu(self.layer2(a))
         return torch.tanh(self.layer3(a))
 
@@ -29,38 +34,44 @@ class Critic(nn.Module):
     def __init__(self, state_dim, action_dim):
         super(Critic, self).__init__()
 
-        self.layer1 = nn.Linear(state_dim + action_dim, 256)
-        self.layer2 = nn.Linear(256, 256)
-        self.layer3 = nn.Linear(256, 1)
+        self.conv1 = nn.Conv2d(1, 4, 4, 2)
+        self.conv2 = nn.Conv2d(4, 8, 3, 2)
+        self.fc1 = nn.Linear(8*9*9, 256)
 
-        self.layer4 = nn.Linear(state_dim + action_dim, 256)
-        self.layer5 = nn.Linear(256, 256)
-        self.layer6 = nn.Linear(256, 1)
+        self.layer1 = nn.Linear(256 + action_dim, 256)
+        self.layer2 = nn.Linear(256, 1)
+
+        self.layer3 = nn.Linear(256 + action_dim, 256)
+        self.layer4 = nn.Linear(256, 1)
 
     def forward(self, state, action):
-        sa = torch.cat([state, action], 1)
+        s1 = F.relu(self.conv1(state))
+        s1 = F.relu(self.conv2(s1))
+        s1 = F.relu(self.fc1(s1))
+        sa = torch.cat([s1, action], 1)
 
         q1 = F.relu(self.layer1(sa))
-        q1 = F.relu(self.layer2(q1))
-        q1 = self.layer3(q1)
+        q1 = self.layer2(q1)
 
-        q2 = F.relu(self.layer4(sa))
-        q2 = F.relu(self.layer5(q2))
-        q2 = self.layer6(q2)
+        q2 = F.relu(self.layer3(sa))
+        q2 = self.layer4(q2)
         return q1, q2
 
     def Q(self, state, action):
-        sa = torch.cat([state, action], 1)
+        s1 = F.relu(self.conv1(state))
+        s1 = F.relu(self.conv2(s1))
+        s1 = F.relu(self.fc1(s1))
+        sa = torch.cat([s1, action], 1)
+
         q = F.relu(self.layer1(sa))
-        q = F.relu(self.layer2(q))
-        q = self.layer3(q)
+        q = self.layer2(q)
         return q
 
 
 class TD3(object):
     def __init__(
         self, state_dim, action_dim, discount=0.99, explore = 0.0,
-        tau=0.005, actor_noise=0.2, noise_clip=0.5, delay=2, bufferSize=50000
+        tau=0.005, actor_noise=0.2, noise_clip=0.5, delay=2, bufferSize=100000
     ):
         self.actor = Actor(state_dim, action_dim).to(device)
         self.actor_target = copy.deepcopy(self.actor)
@@ -82,7 +93,7 @@ class TD3(object):
 
 
     def get_action(self, state):
-        state = torch.FloatTensor(np.reshape(state,(1,-1))).to(device) 
+        state = torch.FloatTensor(np.reshape(state,(1,1,40,40))).to(device) 
         action = self.actor(state).cpu().data.numpy().flatten()
         action += np.random.randn(len(action)) * self.explore
         return action
@@ -103,7 +114,7 @@ class TD3(object):
         )
 
 
-    def train(self, batch_size=128):
+    def train(self, batch_size=256):
         self.iteration += 1
 
         # Sample Replay Buffer
