@@ -5,7 +5,7 @@ import math
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def convertToTensor(input, input_size, batsize=1):
-    input = input.reshape(1,-1) 
+    input = input.reshape(1,-1)
     return torch.FloatTensor(input).to(device)
 
 def calculate_log_pi(log_stds, noises, actions):
