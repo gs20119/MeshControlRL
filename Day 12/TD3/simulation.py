@@ -14,8 +14,8 @@ Size = [WIDTH, HEIGHT]
 stretchRange = 150
 rotateRange = 20
 mainRange = 100
-posScale = 150.0
-velScale = 20.0
+posScale = 1500.0
+velScale = 200.0
 RewardScale = 20.0
 
 # 이용할 색깔
@@ -126,20 +126,16 @@ class Object:
         ret = list([0 for i in range(self.state_size())])
         for i in range(self.N):
             ret[2*i], ret[2*i+1] = self.getControl(i)
-            ret[2*(self.N+1) + 2*i], ret[2*(self.N+1) + 2*i+1] = self.getVelocity(i)
         ret[2*self.N], ret[2*self.N+1] = self.getCenter()
-        ret[4*self.N+2], ret[4*self.N+3] = self.Center[0].getSpeed(), self.Center[1].getSpeed()
-        ret[4*self.N+4], ret[4*self.N+5] = self.mainAxis.getPos(), self.mainAxis.getSpeed()
-        for i in range(2*(self.N+1)): 
-            ret[i] /= posScale
-            ret[i+2*(self.N+1)] /= velScale
+        ret[2*self.N+2] = self.mainAxis.getPos()
+        for i in range(2*(self.N+1)): ret[i] /= posScale
         return ret
 
     def action_size(self):
         return 2*self.N+2
 
     def state_size(self):
-        return 4 * self.N + 6
+        return 2*self.N+3
 
     def force(self, action):
         action = torch.squeeze(torch.FloatTensor(action).to(device))

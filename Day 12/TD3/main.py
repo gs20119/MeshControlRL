@@ -53,7 +53,7 @@ load_model = False
 
 num_epochs = 50000
 max_step = 1000
-discount_factor = 0.99
+discount_factor = 0.98
 step = 0
 episode = 0
 start_train_episode = 2
@@ -88,25 +88,23 @@ for episode in range(num_epochs):
         step += 1
         train_moment += 1
         action = agent.get_action([state])
-        #print(action) 
         next_state, reward, done = simulation.step(action)
 
         if train_mode:
             agent.append_sample(state, action, reward, next_state, done)
 
         state = next_state
-        if train_mode and episode >= start_train_episode and train_moment % train_delay == 0:
-            for i in range(train_delay):
-                actor_loss, critic_loss = agent.train()
-                actor_losses.append(actor_loss)
-                critic_losses.append(critic_loss)
-                sum_actor += actor_loss
-                sum_critic += critic_loss
-                if len(critic_losses) == 100:
-                    sum_actor -= actor_losses[0]
-                    sum_critic -= critic_losses[0]
-                actor_average.append(sum_actor/100)
-                critic_average.append(sum_critic/100) 
+        if train_mode and episode >= start_train_episode:
+            actor_loss, critic_loss = agent.train()
+            actor_losses.append(actor_loss)
+            critic_losses.append(critic_loss)
+            sum_actor += actor_loss
+            sum_critic += critic_loss
+            if len(critic_losses) == 100:
+                sum_actor -= actor_losses[0]
+                sum_critic -= critic_losses[0]
+            actor_average.append(sum_actor/100)
+            critic_average.append(sum_critic/100) 
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:

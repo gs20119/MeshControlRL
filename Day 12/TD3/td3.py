@@ -60,7 +60,7 @@ class Critic(nn.Module):
 class TD3(object):
     def __init__(
         self, state_dim, action_dim, discount=0.99, explore = 0.0,
-        tau=0.005, actor_noise=0.2, noise_clip=0.5, delay=2, bufferSize=100000
+        tau=0.005, actor_noise=0.1, noise_clip=0.2, delay=2, bufferSize=1000000
     ):
         self.actor = Actor(state_dim, action_dim).to(device)
         self.actor_target = copy.deepcopy(self.actor)
@@ -108,6 +108,7 @@ class TD3(object):
 
         # Sample Replay Buffer
         state, action, reward, next_state, done = self.sample(batch_size)
+        reward, done = torch.reshape(reward, (batch_size, 1)), torch.reshape(done, (batch_size, 1))
 
         with torch.no_grad():
             noise = (
