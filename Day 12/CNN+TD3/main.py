@@ -6,7 +6,7 @@ from td3 import *
 from collections import deque
 import matplotlib.pyplot as plt
 
-O, X = 1, -1
+X, O = 1, -1
 bonus = [
 [O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O],
 [O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O],
@@ -68,11 +68,11 @@ train_mode = True
 load_model = False
 
 num_epochs = 50000
-max_step = 500
+max_step = 1000
 discount_factor = 0.99
 step = 0
 episode = 0
-start_train_episode = 10
+start_train_episode = 2
 print_interval = 10
 actor_loss = None
 critic_loss = None
@@ -101,7 +101,7 @@ for episode in range(num_epochs):
         step += 1
         action = agent.get_action([state])
 
-        #print(action)
+        print(action[1:6])
         next_state, reward, done = simulation.step(action)
 
         if train_mode:

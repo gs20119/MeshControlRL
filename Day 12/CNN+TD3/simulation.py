@@ -16,9 +16,9 @@ Size = [WIDTH, HEIGHT]
 stretchRange = 150
 rotateRange = 20
 mainRange = 100
-posScale = 150.0
-velScale = 20.0
-RewardScale = 20.0
+posScale = 1500.0
+velScale = 200.0
+RewardScale = 40.0
 
 # 이용할 색깔
 BLACK = 0, 0, 0

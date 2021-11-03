@@ -118,6 +118,7 @@ class TD3(object):
 
         # Sample Replay Buffer
         state, action, reward, next_state, done = self.sample(batch_size)
+        reward, done = torch.reshape(reward, (batch_size, 1)), torch.reshape(done, (batch_size, 1))
 
         with torch.no_grad():
             noise = (
